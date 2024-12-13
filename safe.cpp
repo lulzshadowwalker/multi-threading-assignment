@@ -10,6 +10,24 @@
 
 #define OUT
 
+#define lock(mutex)                                                            \
+  do {                                                                         \
+    int failed = pthread_mutex_lock(mutex);                                    \
+    if (failed) {                                                              \
+      printf("Error locking mutex %s (code %d)\n", #mutex, failed);            \
+      exit(EXIT_FAILURE);                                                      \
+    }                                                                          \
+  } while (0)
+
+#define unlock(mutex)                                                          \
+  do {                                                                         \
+    int failed = pthread_mutex_unlock(mutex);                                  \
+    if (failed) {                                                              \
+      printf("Error unlocking mutex %s (code %d)\n", #mutex, failed);          \
+      exit(EXIT_FAILURE);                                                      \
+    }                                                                          \
+  } while (0)
+
 bool parse_int(const char *str, OUT int *res);
 bool is_prime(int n);
 bool is_palindrome(int n);
@@ -28,7 +46,15 @@ std::vector<int> palindromic_primes;
 unsigned int prime_count;
 unsigned int palindrome_count;
 unsigned int palindromic_prime_count;
-unsigned int total_count = 22;
+unsigned int total_count;
+
+pthread_mutex_t primes_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t palindromes_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t palindromic_primes_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t prime_count_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t palindrome_count_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t palindromic_prime_count_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t total_count_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int main(int argc, const char *argv[]) {
   //  NOTE: Check the number of arguments and print usage if needed
@@ -60,8 +86,6 @@ int main(int argc, const char *argv[]) {
     exit(EXIT_FAILURE);
   }
   fclose(input);
-  start = 0;
-  end = 100;
 
   int range_size = (end - start + 1) / thread_count;
   int remainder = (end - start + 1) % thread_count;
@@ -69,20 +93,29 @@ int main(int argc, const char *argv[]) {
 
   for (int i = 0; i < thread_count; ++i) {
     int _start = current_start;
-    int _end = current_start + range_size - 1;
-    if (i < remainder) {
-      _end++; 
+    int _end = current_start + range_size; // - 1;
+    if (i == 0) _end--;
+    if (i < remainder) _end++;
+
+
+    //  NOTE: Not allocating memory on the stack, because the memory address might be reused in 
+    //  the next iteration before the thread finishes processing so we need to allocate memory on the heap.
+    int *range = (int *)malloc(2 * sizeof(int)); 
+    if (range == NULL) {
+      printf("Memory allocation failed\n");
+      exit(EXIT_FAILURE);
     }
 
-    int range[2] = {_start, _end};
-
-    current_start = _end + 1;
+    range[0] = _start;
+    range[1] = _end;
 
     int failed = pthread_create(&threads[i], NULL, handle, (void *)range);
     if (failed) {
       printf("Error creating thread %d\n", i);
       exit(EXIT_FAILURE);
     }
+
+    current_start = _end; //+ 1;
 
     printf("ThreadID=%d, startNum=%d, endNum=%d\n", i, range[0], range[1]);
   }
@@ -104,29 +137,49 @@ void *handle(void *arg) {
   int start = range[0];
   int end = range[1];
 
-  for (int i = start; i <= end; ++i) {
-    total_count++;
+  free(range);
+
+  unsigned int _prime_count = 0;
+  unsigned int _palindrome_count = 0;
+  unsigned int _palindromic_count = 0;
+  unsigned int _total_count = 0;
+
+  for (int i = start; i < end; ++i) {
+    _total_count++;
 
     bool _is_prime = false;
     bool _is_palindrome = false;
 
     if (is_prime(i)) {
       _is_prime = true;
-      // primes.push_back(i);
-      prime_count++;
+      _prime_count++;
     }
 
     if (is_palindrome(i)) {
       _is_palindrome = true;
-      // palindromes.push_back(i);
-      palindrome_count++;
+      _palindrome_count++;
     }
 
     if (_is_prime && _is_palindrome) {
-      // palindromic_primes.push_back(i);
-      palindromic_prime_count++;
+      _palindromic_count++;
     }
   }
+
+  lock(&total_count_mutex);
+  total_count += _total_count;
+  unlock(&total_count_mutex);
+
+  lock(&prime_count_mutex);
+  prime_count += _prime_count;
+  unlock(&prime_count_mutex);
+
+  lock(&palindrome_count_mutex);
+  palindrome_count += _palindrome_count;
+  unlock(&palindrome_count_mutex);
+
+  lock(&palindromic_primes_mutex);
+  palindromic_prime_count += _palindromic_count;
+  unlock(&palindromic_primes_mutex);
 
   return NULL;
 }

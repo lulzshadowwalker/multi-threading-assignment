@@ -59,8 +59,6 @@ int main(int argc, const char *argv[]) {
     exit(EXIT_FAILURE);
   }
   fclose(input);
-  start = 0;
-  end = 100;
 
   int range_size = (end - start + 1) / thread_count;
   int remainder = (end - start + 1) % thread_count;
@@ -68,20 +66,29 @@ int main(int argc, const char *argv[]) {
 
   for (int i = 0; i < thread_count; ++i) {
     int _start = current_start;
-    int _end = current_start + range_size - 1;
-    if (i < remainder) {
-      _end++; 
+    int _end = current_start + range_size; // - 1;
+    if (i == 0) _end--; 
+    if (i < remainder) _end++; 
+
+
+    //  NOTE: Not allocating memory on the stack, because the memory address might be reused in 
+    //  the next iteration before the thread finishes processing so we need to allocate memory on the heap.
+    int *range = (int *)malloc(2 * sizeof(int)); 
+    if (range == NULL) {
+      printf("Memory allocation failed\n");
+      exit(EXIT_FAILURE);
     }
 
-    int range[2] = {_start, _end};
-
-    current_start = _end + 1;
+    range[0] = _start;
+    range[1] = _end;
 
     int failed = pthread_create(&threads[i], NULL, handle, (void *)range);
     if (failed) {
       printf("Error creating thread %d\n", i);
       exit(EXIT_FAILURE);
     }
+
+    current_start = _end; // + 1;
 
     printf("ThreadID=%d, startNum=%d, endNum=%d\n", i, range[0], range[1]);
   }
@@ -102,6 +109,8 @@ void *handle(void *arg) {
   int *range = (int *)arg;
   int start = range[0];
   int end = range[1];
+
+  free(range);
 
   for (int i = start; i <= end; ++i) {
     total_count++;
