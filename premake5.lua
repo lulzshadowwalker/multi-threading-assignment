@@ -1,6 +1,6 @@
 -- premake5.lua
 workspace "MultiThreadingAssignment"
-   configurations { "Debug", "Release" }
+   configurations { "Debug", "Release", "Test" }
 
 project "MultiThreadingAssignment"
    kind "ConsoleApp"
@@ -14,5 +14,9 @@ project "MultiThreadingAssignment"
       symbols "On"
 
    filter "configurations:Release"
-      defines { "NDEBUG" }
+      defines { "RELEASE" }
       optimize "On"
+
+    filter "configurations:Test"
+      defines { "TEST" }
+      symbols "on"
