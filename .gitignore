@@ -6,5 +6,8 @@ Makefile
 *.make
 obj/
 bin/
+out.txt
 
 # End of https://www.toptal.com/developers/gitignore/api/premake-gmake
+unsafe-out.txt
+screenshots/

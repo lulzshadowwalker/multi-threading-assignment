@@ -4,25 +4,73 @@
 #include <limits.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdexcept>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
+#include <fstream>
+#include <sstream>
 #include <vector>
 
 #define OUT
 
+class DynamicArray {
+private:
+  int *data;
+  size_t capacity;
+  size_t size;
+
+  void resize(size_t newCapacity) {
+    int *newData = new int[newCapacity];
+    for (size_t i = 0; i < size; ++i) {
+      newData[i] = data[i];
+    }
+    delete[] data;
+    data = newData;
+    capacity = newCapacity;
+  }
+
+public:
+  DynamicArray(size_t initialCapacity = 4)
+      : data(new int[initialCapacity]), capacity(initialCapacity), size(0) {}
+
+  ~DynamicArray() { delete[] data; }
+
+  size_t getSize() const { return size; }
+
+  size_t getCapacity() const { return capacity; }
+
+  void append(int value) {
+    if (size == capacity) {
+      resize(capacity * 2); 
+    }
+    data[size++] = value;
+  }
+
+  int get(size_t index) const {
+    if (index >= size) {
+      throw std::out_of_range("Index out of range");
+    }
+    return data[index];
+  }
+
+  int operator[](size_t index) const { return get(index); }
+};
+
+DynamicArray primes;
+DynamicArray palindromes;
+DynamicArray palindromic_primes;
+
 bool parse_int(const char *str, OUT int *res);
 bool is_prime(int n);
 bool is_palindrome(int n);
+void log(std::string message);
 
 // handles the range of numbers assigned to the thread and counts the number of
 // primes, palindromes, and palindromic primes
 void *handle(void *arg);
 
 #ifdef UNSAFE
-
-std::vector<int> primes;
-std::vector<int> palindromes;
-std::vector<int> palindromic_primes;
 
 unsigned int prime_count;
 unsigned int palindrome_count;
@@ -67,13 +115,15 @@ int main(int argc, const char *argv[]) {
   for (int i = 0; i < thread_count; ++i) {
     int _start = current_start;
     int _end = current_start + range_size; // - 1;
-    if (i == 0) _end--; 
-    if (i < remainder) _end++; 
+    if (i == 0)
+      _end--;
+    if (i < remainder)
+      _end++;
 
-
-    //  NOTE: Not allocating memory on the stack, because the memory address might be reused in 
-    //  the next iteration before the thread finishes processing so we need to allocate memory on the heap.
-    int *range = (int *)malloc(2 * sizeof(int)); 
+    //  NOTE: Not allocating memory on the stack, because the memory address
+    //  might be reused in the next iteration before the thread finishes
+    //  processing so we need to allocate memory on the heap.
+    int *range = (int *)malloc(2 * sizeof(int));
     if (range == NULL) {
       printf("Memory allocation failed\n");
       exit(EXIT_FAILURE);
@@ -102,6 +152,29 @@ int main(int argc, const char *argv[]) {
          "numOfPalindromicPrime=%d\n",
          total_count, prime_count, palindrome_count, palindromic_prime_count);
 
+  //  NOTE: Remove output file if it already exists
+  if (std::ifstream("./unsafe-out.txt"))
+    remove("./unsafe-out.txt");
+
+  std::ostringstream output;
+
+  output << "The prime numbers are:\n";
+  for (int prime = 0; prime < primes.getSize(); ++prime) {
+    output << primes.get(prime) << '\n';
+  }
+
+  output << "The palindrome numbers are:\n";
+  for (int palindrome = 0; palindrome < palindromes.getSize(); ++palindrome) {
+    output << palindromes.get(palindrome) << '\n';
+  }
+
+  output << "The palindromicPrime numbers are:\n";
+  for (int palindromic_prime = 0; palindromic_prime < palindromic_primes.getSize(); ++palindromic_prime) {
+    output << palindromic_primes.get(palindromic_prime) << '\n';
+  }
+
+  log(output.str());
+
   return 0;
 }
 
@@ -120,19 +193,19 @@ void *handle(void *arg) {
 
     if (is_prime(i)) {
       _is_prime = true;
-      // primes.push_back(i);
       prime_count++;
+      primes.append(i);
     }
 
     if (is_palindrome(i)) {
       _is_palindrome = true;
-      // palindromes.push_back(i);
       palindrome_count++;
+      palindromes.append(i);
     }
 
     if (_is_prime && _is_palindrome) {
-      // palindromic_primes.push_back(i);
       palindromic_prime_count++;
+      palindromic_primes.append(i);
     }
   }
 
@@ -181,6 +254,17 @@ bool is_palindrome(int n) {
   }
 
   return original == reversed;
+}
+
+void log(std::string message) {
+  if (message.back() != '\n')
+    message += "\n";
+
+  std::ofstream out;
+
+  out.open("./unsafe-out.txt", std::ios::app);
+  out << message;
+  out.close();
 }
 
 #endif

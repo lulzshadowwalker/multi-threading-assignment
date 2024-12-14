@@ -1,3 +1,8 @@
 The prime numbers are:
+700666007
+700666009
+700666019
 The palindrome numbers are:
+700666007
 The palindromicPrime numbers are:
+700666007

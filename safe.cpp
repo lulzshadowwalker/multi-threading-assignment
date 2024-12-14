@@ -1,13 +1,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <errno.h>
+#include <fstream>
 #include <limits.h>
 #include <pthread.h>
+#include <sstream>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
-#include <fstream>
 #include <vector>
 
 #define OUT
@@ -138,9 +139,24 @@ int main(int argc, const char *argv[]) {
   if (std::ifstream("./out.txt"))
     remove("./out.txt");
 
-  log("The prime numbers are:");
-  log("The palindrome numbers are:");
-  log("The palindromicPrime numbers are:");
+  std::ostringstream output;
+
+  output << "The prime numbers are:\n";
+  for (int prime : primes) {
+    output << prime << '\n';
+  }
+
+  output << "The palindrome numbers are:\n";
+  for (int palindrome : palindromes) {
+    output << palindrome << '\n';
+  }
+
+  output << "The palindromicPrime numbers are:\n";
+  for (int palindromic_prime : palindromic_primes) {
+    output << palindromic_prime << '\n';
+  }
+
+  log(output.str());
 
   return 0;
 }
@@ -157,6 +173,10 @@ void *handle(void *arg) {
   unsigned int _palindromic_count = 0;
   unsigned int _total_count = 0;
 
+  std::vector<int> _primes;
+  std::vector<int> _palindromes;
+  std::vector<int> _palindromic_primes;
+
   for (int i = start; i < end; ++i) {
     _total_count++;
 
@@ -166,15 +186,18 @@ void *handle(void *arg) {
     if (is_prime(i)) {
       _is_prime = true;
       _prime_count++;
+      _primes.push_back(i);
     }
 
     if (is_palindrome(i)) {
       _is_palindrome = true;
       _palindrome_count++;
+      _palindromes.push_back(i);
     }
 
     if (_is_prime && _is_palindrome) {
       _palindromic_count++;
+      _palindromic_primes.push_back(i);
     }
   }
 
@@ -194,11 +217,27 @@ void *handle(void *arg) {
   palindromic_prime_count += _palindromic_count;
   unlock(&palindromic_primes_mutex);
 
+  lock(&primes_mutex);
+  primes.insert(primes.end(), _primes.begin(), _primes.end());
+  unlock(&primes_mutex);
+
+  lock(&palindromes_mutex);
+  palindromes.insert(palindromes.end(), _palindromes.begin(),
+                     _palindromes.end());
+  unlock(&palindromes_mutex);
+
+  lock(&palindromic_primes_mutex);
+  palindromic_primes.insert(palindromic_primes.end(),
+                            _palindromic_primes.begin(),
+                            _palindromic_primes.end());
+  unlock(&palindromic_primes_mutex);
+
   return NULL;
 }
 
 void log(std::string message) {
-  if (message.back() != '\n') message += "\n";
+  if (message.back() != '\n')
+    message += "\n";
 
   std::ofstream out;
 
