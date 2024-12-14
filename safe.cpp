@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
+#include <fstream>
 #include <vector>
 
 #define OUT
@@ -31,6 +33,7 @@
 bool parse_int(const char *str, OUT int *res);
 bool is_prime(int n);
 bool is_palindrome(int n);
+void log(std::string message);
 
 // handles the range of numbers assigned to the thread and counts the number of
 // primes, palindromes, and palindromic primes
@@ -94,13 +97,15 @@ int main(int argc, const char *argv[]) {
   for (int i = 0; i < thread_count; ++i) {
     int _start = current_start;
     int _end = current_start + range_size; // - 1;
-    if (i == 0) _end--;
-    if (i < remainder) _end++;
+    if (i == 0)
+      _end--;
+    if (i < remainder)
+      _end++;
 
-
-    //  NOTE: Not allocating memory on the stack, because the memory address might be reused in 
-    //  the next iteration before the thread finishes processing so we need to allocate memory on the heap.
-    int *range = (int *)malloc(2 * sizeof(int)); 
+    //  NOTE: Not allocating memory on the stack, because the memory address
+    //  might be reused in the next iteration before the thread finishes
+    //  processing so we need to allocate memory on the heap.
+    int *range = (int *)malloc(2 * sizeof(int));
     if (range == NULL) {
       printf("Memory allocation failed\n");
       exit(EXIT_FAILURE);
@@ -128,6 +133,14 @@ int main(int argc, const char *argv[]) {
   printf("totalNums=%d, numOfPrime=%d, numOfPalindrome=%d, "
          "numOfPalindromicPrime=%d\n",
          total_count, prime_count, palindrome_count, palindromic_prime_count);
+
+  //  NOTE: Remove output file if it already exists
+  if (std::ifstream("./out.txt"))
+    remove("./out.txt");
+
+  log("The prime numbers are:");
+  log("The palindrome numbers are:");
+  log("The palindromicPrime numbers are:");
 
   return 0;
 }
@@ -182,6 +195,16 @@ void *handle(void *arg) {
   unlock(&palindromic_primes_mutex);
 
   return NULL;
+}
+
+void log(std::string message) {
+  if (message.back() != '\n') message += "\n";
+
+  std::ofstream out;
+
+  out.open("./out.txt", std::ios::app);
+  out << message;
+  out.close();
 }
 
 #endif

@@ -1,0 +1,3 @@
+The prime numbers are:
+The palindrome numbers are:
+The palindromicPrime numbers are:
